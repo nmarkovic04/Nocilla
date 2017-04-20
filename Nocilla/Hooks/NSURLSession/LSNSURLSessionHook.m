@@ -10,26 +10,31 @@
 #import "LSHTTPStubURLProtocol.h"
 #import <objc/runtime.h>
 
+IMP originalProtocolClassesImplementation = nil;
+
 @implementation LSNSURLSessionHook
 
 - (void)load {
     Class cls = NSClassFromString(@"__NSCFURLSessionConfiguration") ?: NSClassFromString(@"NSURLSessionConfiguration");
-    [self swizzleSelector:@selector(protocolClasses) fromClass:cls toClass:[self class]];
+    
+    SEL selector = @selector(protocolClasses);
+    Method originalMethod = class_getInstanceMethod(cls, selector);
+    Method stubMethod = class_getInstanceMethod([self class], selector);
+    IMP stubImplementation = method_getImplementation(stubMethod);
+    originalProtocolClassesImplementation = method_getImplementation(originalMethod);
+    method_setImplementation(originalMethod, stubImplementation);
 }
 
 - (void)unload {
-    Class cls = NSClassFromString(@"__NSCFURLSessionConfiguration") ?: NSClassFromString(@"NSURLSessionConfiguration");
-    [self swizzleSelector:@selector(protocolClasses) fromClass:cls toClass:[self class]];
-}
-
-- (void)swizzleSelector:(SEL)selector fromClass:(Class)original toClass:(Class)stub {
-
-    Method originalMethod = class_getInstanceMethod(original, selector);
-    Method stubMethod = class_getInstanceMethod(stub, selector);
-    if (!originalMethod || !stubMethod) {
-        [NSException raise:NSInternalInconsistencyException format:@"Couldn't load NSURLSession hook."];
+    if (originalProtocolClassesImplementation == nil){
+        return;
     }
-    method_exchangeImplementations(originalMethod, stubMethod);
+    
+    Class cls = NSClassFromString(@"__NSCFURLSessionConfiguration") ?: NSClassFromString(@"NSURLSessionConfiguration");
+    
+    SEL selector = @selector(protocolClasses);
+    Method originalMethod = class_getInstanceMethod(cls, selector);
+    method_setImplementation(originalMethod, originalProtocolClassesImplementation);
 }
 
 - (NSArray *)protocolClasses {

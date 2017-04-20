@@ -12,6 +12,7 @@ NSString * const LSUnexpectedRequest = @"Unexpected Request";
 @property (nonatomic, strong) NSMutableArray *mutableRequests;
 @property (nonatomic, strong) NSMutableArray *hooks;
 @property (nonatomic, assign, getter = isStarted) BOOL started;
+@property (nonatomic, copy) void (^defaultFailureHandler)(id<LSHTTPRequest>);
 
 - (void)loadHooks;
 - (void)unloadHooks;
@@ -39,6 +40,12 @@ static LSNocilla *sharedInstace = nil;
             [self registerHook:[[LSNSURLSessionHook alloc] init]];
         }
         [self registerHook:[[LSASIHTTPRequestHook alloc] init]];
+        
+        self.defaultFailureHandler = ^(id<LSHTTPRequest> request){
+            [NSException raise:@"NocillaUnexpectedRequest" format:@"An unexpected HTTP request was fired.\n\nUse this snippet to stub the request:\n%@\n", [[[LSHTTPRequestDSLRepresentation alloc] initWithRequest:request] description]];
+        };
+        
+        [self resetFailureHandlerToDefault];
     }
     return self;
 }
@@ -55,19 +62,21 @@ static LSNocilla *sharedInstace = nil;
 }
 
 - (void)stop {
-    [self unloadHooks];
-    [self clearStubs];
-    self.started = NO;
+    if (self.started){
+        [self unloadHooks];
+        [self clearStubs];
+        self.started = NO;
+    }
 }
 
 - (void)addStubbedRequest:(LSStubRequest *)request {
     NSUInteger index = [self.mutableRequests indexOfObject:request];
-
+    
     if (index == NSNotFound) {
         [self.mutableRequests addObject:request];
         return;
     }
-
+    
     [self.mutableRequests replaceObjectAtIndex:index withObject:request];
 }
 
@@ -77,14 +86,17 @@ static LSNocilla *sharedInstace = nil;
 
 - (LSStubResponse *)responseForRequest:(id<LSHTTPRequest>)actualRequest {
     NSArray* requests = [LSNocilla sharedInstance].stubbedRequests;
-
+    
     for(LSStubRequest *someStubbedRequest in requests) {
         if ([someStubbedRequest matchesRequest:actualRequest]) {
             return someStubbedRequest.response;
         }
     }
-    [NSException raise:@"NocillaUnexpectedRequest" format:@"An unexpected HTTP request was fired.\n\nUse this snippet to stub the request:\n%@\n", [[[LSHTTPRequestDSLRepresentation alloc] initWithRequest:actualRequest] description]];
-
+    
+    if (self.isStarted){
+        self.failureHandler(actualRequest);
+    }
+    
     return nil;
 }
 
@@ -102,6 +114,11 @@ static LSNocilla *sharedInstace = nil;
     }
     return NO;
 }
+
+- (void)resetFailureHandlerToDefault{
+    self.failureHandler = self.defaultFailureHandler;
+}
+
 #pragma mark - Private
 - (void)loadHooks {
     for (LSHTTPClientHook *hook in self.hooks) {
