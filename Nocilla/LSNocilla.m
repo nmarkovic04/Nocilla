@@ -12,8 +12,8 @@ NSString * const LSUnexpectedRequest = @"Unexpected Request";
 @property (nonatomic, strong) NSMutableArray *mutableRequests;
 @property (nonatomic, strong) NSMutableArray *hooks;
 @property (nonatomic, assign, getter = isStarted) BOOL started;
-@property (nonatomic, copy) void (^defaultFailureHandler)(id<LSHTTPRequest>);
-@property (nonatomic, copy) void (^currentFailureHandler)(id<LSHTTPRequest>);
+@property (nonatomic, copy) void (^defaultFailureHandler)(NSString* requestName);
+@property (nonatomic, copy) void (^currentFailureHandler)(NSString* requestName);
 
 - (void)loadHooks;
 - (void)unloadHooks;
@@ -42,8 +42,8 @@ static LSNocilla *sharedInstace = nil;
         }
         [self registerHook:[[LSASIHTTPRequestHook alloc] init]];
         
-        self.defaultFailureHandler = ^(id<LSHTTPRequest> request){
-            [NSException raise:@"NocillaUnexpectedRequest" format:@"An unexpected HTTP request was fired.\n\nUse this snippet to stub the request:\n%@\n", [[[LSHTTPRequestDSLRepresentation alloc] initWithRequest:request] description]];
+        self.defaultFailureHandler = ^ (NSString* requestName){
+            [NSException raise:@"NocillaUnexpectedRequest" format:@"An unexpected HTTP request was fired.\n\nUse this snippet to stub the request:\n%@\n", requestName];
         };
         
         [self resetFailureHandlerToDefault];
@@ -95,7 +95,7 @@ static LSNocilla *sharedInstace = nil;
     }
     
     if (self.isStarted){
-        self.currentFailureHandler(actualRequest);
+        self.currentFailureHandler([[[LSHTTPRequestDSLRepresentation alloc] initWithRequest:actualRequest] description]);
     }
     
     return nil;
@@ -116,7 +116,7 @@ static LSNocilla *sharedInstace = nil;
     return NO;
 }
 
-- (void)setFailureHandler:(void (^)(id<LSHTTPRequest>))failureHandler{
+- (void)setFailureHandler:(void (^)(NSString* requestName))failureHandler{
     self.currentFailureHandler = failureHandler;
 }
 

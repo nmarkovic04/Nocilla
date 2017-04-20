@@ -19,7 +19,7 @@ extern NSString * const LSUnexpectedRequest;
 - (void)addStubbedRequest:(LSStubRequest *)request;
 - (void)clearStubs;
 
-- (void)setFailureHandler:(void (^)(id<LSHTTPRequest>))failureHandler;
+- (void)setFailureHandler:(void (^)(NSString* requestName))failureHandler;
 - (void)resetFailureHandlerToDefault;
 
 - (void)registerHook:(LSHTTPClientHook *)hook;
