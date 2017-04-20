@@ -13,6 +13,7 @@ NSString * const LSUnexpectedRequest = @"Unexpected Request";
 @property (nonatomic, strong) NSMutableArray *hooks;
 @property (nonatomic, assign, getter = isStarted) BOOL started;
 @property (nonatomic, copy) void (^defaultFailureHandler)(id<LSHTTPRequest>);
+@property (nonatomic, copy) void (^currentFailureHandler)(id<LSHTTPRequest>);
 
 - (void)loadHooks;
 - (void)unloadHooks;
@@ -94,7 +95,7 @@ static LSNocilla *sharedInstace = nil;
     }
     
     if (self.isStarted){
-        self.failureHandler(actualRequest);
+        self.currentFailureHandler(actualRequest);
     }
     
     return nil;
@@ -115,8 +116,12 @@ static LSNocilla *sharedInstace = nil;
     return NO;
 }
 
+- (void)setFailureHandler:(void (^)(id<LSHTTPRequest>))failureHandler{
+    self.currentFailureHandler = failureHandler;
+}
+
 - (void)resetFailureHandlerToDefault{
-    self.failureHandler = self.defaultFailureHandler;
+    self.currentFailureHandler = self.defaultFailureHandler;
 }
 
 #pragma mark - Private
